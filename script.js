@@ -1,3 +1,8 @@
+if(localStorage.getItem("agreed") === "true") {
+    document.querySelector("#agreement").style.display = "none";
+    document.querySelector("#overlay").style.display = "none";
+}
+
 //get country from user agent
 let country = navigator.language || navigator.userLanguage;
 country = country.split("-")[1];
@@ -42,8 +47,13 @@ function getColor(ceiling) {
 }
 
 let map = L.map('map', {
-    preferCanvas: true
-}).setView([37.8, -96], 4);
+    preferCanvas: true,
+    minZoom: 3,
+    maxBounds: [
+        [80, -190],
+        [-30, -30]
+    ]
+}).setView([37.8, -96], 5);
 
 const googleMaps = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
     maxZoom: 20,
@@ -253,7 +263,7 @@ infoPanel.onAdd = function (map) {
     this._div = L.DomUtil.create('div', 'info-panel leaflet-control collapsed');
     this._div.innerHTML = `
     <div class="topbar">
-        <span class="title">UAS Map</span>
+        <span class="title">UAV Map</span>
         <button id="infoToggle" class="toggle-button" onclick="toggleInfo()">
             <svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M201.4 137.4c12.5-12.5 32.8-12.5 45.3 0l160 160c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L224 205.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l160-160z"/></svg>
         </button>
@@ -528,7 +538,7 @@ function updateInfo(lat, lng) {
                 <span>${airport["Facility Type"]}${airport["ICAO Id"] !== "" ? " - " : ""}${airport["ICAO Id"]}</span>
             </div>
             <hr>
-            <span>Current Location is ${units.distance === "metric" ? (airport.distance / 1000).toFixed(2) + "km" : (airport.distance * 0.000621371).toFixed(2) + "mi"  } from this facility</span>
+            <span>Current Location is ${units.distance === "metric" ? (airport.distance / 1000).toFixed(2) + "km" : (airport.distance * 0.000621371).toFixed(2) + "mi"  } from this facility.</span>
             <br>
             <span><a href="#${encodeURIComponent(airport["Site Id"])}" onclick="viewAirport('${airport["Site Id"]}')">View Airport Info</a></span>
         </div>
@@ -769,6 +779,13 @@ function setPage(page) {
     document.querySelector(`#nav button#${page}Btn`).classList.add('active');
     document.querySelector(`.page.active`).classList.remove('active');
     document.querySelector(`.page#${page}`).classList.add('active');
+}
+
+function agree() {
+    document.querySelector('#agreement').style.display = "none";
+    document.querySelector('#overlay').style.display = "none";
+
+    localStorage.setItem('agreed', "true");
 }
 
 /*

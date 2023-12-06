@@ -1,5 +1,46 @@
 body {
     margin: 0px;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+}
+
+#agreement {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    border-radius: 5px;
+    padding: 20px;
+    width: 37vw;
+    z-index: 10001;
+    overflow: scroll;
+}
+
+#agreement h1 {
+    margin: 0px;
+    margin-bottom: 10px;
+}
+
+#agreement button {
+    float: right;
+    background-color: rgb(43, 131, 255);
+    color: white;
+    border: none;
+    font-size: 16px;
+    padding: 9px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#overlay {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: rgb(0 0 0 / 50%);
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
 }
 
 ::-webkit-scrollbar {
@@ -233,9 +274,21 @@ body {
     padding-right: 5px;
 }
 
+@media only screen and (max-width: 1100px) {
+    #agreement {
+        width: 50vw;
+    }
+}
+
 @media only screen and (max-width: 900px) {
     .info-panel {
         width: calc(100vw - 20px);
+    }
+}
+
+@media only screen and (max-width: 800px) {
+    #agreement {
+        width: 90vw;
     }
 }
 
