@@ -41,14 +41,99 @@ function getColor(ceiling) {
                                 '#f70202';
 }
 
-var map = L.map('map').setView([37.8, -96], 4);
+let map = L.map('map', {
+    preferCanvas: true
+}).setView([37.8, -96], 4);
 
-const googleMaps = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+const googleMaps = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
     maxZoom: 20,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 }).addTo(map);
 const openStreetMaps = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png');
 const openTopoMaps = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
+
+
+//Retrieve airports
+//Make airport layer to add markers
+const airports = L.layerGroup().addTo(map);
+let airportData = [];
+
+const Http = new XMLHttpRequest();
+const url = 'data/airports.json';
+Http.open("GET", url);
+Http.send();
+
+Http.onreadystatechange = (e) => {
+    if(Http.readyState === 4 && Http.status === 200) {
+        airportData = JSON.parse(Http.responseText);
+        
+        airportData.forEach(airport => {
+            //add Marker
+            let marker = L.circleMarker([airport["ARP Latitude DD"], airport["ARP Longitude DD"]], {
+                color: 'white',
+                fillColor: '#00259e',
+                fillOpacity: 0,
+                opacity: 0,
+                radius: 0,
+                weight: 0
+            });
+
+            marker.bindPopup(`
+            <div class="airport-marker">
+                <a href="#${encodeURIComponent(airport["Site Id"])}">${airport["Name"]}</a>
+            </div>
+            `);
+
+            //Add to layer
+            marker.addTo(airports);
+        })
+    }
+}
+
+//Control layer display based on zoom level
+map.on('zoomend', function () {
+    if (map.getZoom() < 7) {
+        //Update styles to be transparent
+        airports.eachLayer(function (layer) {
+            layer.setStyle({
+                fillOpacity: 0,
+                opacity: 0,
+                radius: 0,
+                weight: 0
+            });
+        });
+    } else if (map.getZoom() >= 7 && map.getZoom() <= 9){
+        //Make airports visible
+        airports.eachLayer(function (layer) {
+            layer.setStyle({
+                fillOpacity: 1,
+                opacity: 1,
+                radius: 3,
+                weight: 1
+            });
+        });
+    } else if (map.getZoom() > 9 && map.getZoom() <= 12){
+        //Make airports visible
+        airports.eachLayer(function (layer) {
+            layer.setStyle({
+                fillOpacity: 1,
+                opacity: 1,
+                radius: 6,
+                weight: 2
+            });
+        });
+    } else {
+        //Make airports visible
+        airports.eachLayer(function (layer) {
+            layer.setStyle({
+                fillOpacity: 1,
+                opacity: 1,
+                radius: 9,
+                weight: 3
+            });
+        });
+    }
+});
 
 const facilityMap = L.esri.featureLayer({
     url: 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/FAA_UAS_FacilityMap_Data/FeatureServer/0',
@@ -93,10 +178,7 @@ const recreationalFixedFlyerSites = L.esri.featureLayer({
     }
 }).addTo(map);
 
-// Add a layer for FAA 5010 Airports
-const faa5010Airports = L.esri.dynamicMapLayer({
-    url: 'https://maps6.arcgisonline.com/ArcGIS/rest/services/A-16/FAA_5010_Airports/MapServer'
-}).addTo(map);
+
 
 //Add Part Time Restrictions
 const partTimeRestrictions = L.esri.featureLayer({
@@ -145,7 +227,7 @@ const baseMaps = {
 };
 
 const overlayMaps = {
-    "FAA 5010 Airports": faa5010Airports,
+    "Airports": airports,
     "Restricted UAV Areas": restrictedUAVAreas,
     "Prohibited Areas": prohibitedAreas,
     "Recreational Fixed Flyer Sites": recreationalFixedFlyerSites,
@@ -162,7 +244,7 @@ infoPanel.onAdd = function (map) {
     this._div.innerHTML = `
     <div class="topbar">
         <span class="title">UAS Map</span>
-        <button class="toggle-button" onclick="toggleInfo()">
+        <button id="infoToggle" class="toggle-button" onclick="toggleInfo()">
             <svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M201.4 137.4c12.5-12.5 32.8-12.5 45.3 0l160 160c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L224 205.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l160-160z"/></svg>
         </button>
     </div>
@@ -197,7 +279,7 @@ function toggleInfo() {
 const locateButton = L.control({ position: 'topleft' });
 locateButton.onAdd = function (map) {
     this._div = L.DomUtil.create('div', 'locate-button');
-    this._div.innerHTML = '<button>Locate</button>';
+    this._div.innerHTML = '<button><i class="fa-solid fa-location-crosshairs"></i></button>';
     return this._div;
 };
 locateButton.addTo(map);
@@ -205,6 +287,7 @@ locateButton.addTo(map);
 // Add a click event listener to the button
 document.querySelector('.locate-button button').addEventListener('click', function (event) {
     event.stopPropagation();
+    document.querySelector('.locate-button button').innerHTML = "<i class='fa-solid fa-spinner'></i>"
     map.locate({ setView: true, maxZoom: 16 });
 });
 
@@ -229,6 +312,8 @@ map.on('locationfound', function (e) {
 
     locationMarker.setLatLng(e.latlng).addTo(map);
     updateInfo(e.latlng.lat, e.latlng.lng);
+    
+    document.querySelector('.locate-button button').innerHTML = "<i class='fa-solid fa-location-crosshairs'></i>"
 });
 
 //move marker on click or drag
@@ -240,6 +325,8 @@ function onMapClick(e) {
 map.on('click', onMapClick);
 
 function updateInfo(lat, lng) {
+    document.querySelector('.info-panel').classList.remove('collapsed');
+
     document.querySelector('.info-panel .topbar .title').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     //get address from lat and lng
     geocoder.reverse({ lat: lat, lng: lng }, map.options.crs.scale(map.getZoom()), function (results) {
@@ -391,6 +478,44 @@ function updateInfo(lat, lng) {
         });
     }));
 
+    //Search Airports
+    promises.push(new Promise((resolve, reject) => {
+    
+    let radius = 5 * 1609.34; // Convert miles to meters
+    let results = [];
+    let point = L.latLng(lat, lng);
+
+    for (let i = 0; i < airportData.length; i++) {
+        let airport = airportData[i];
+        let airportLatLng = L.latLng(airport["ARP Latitude DD"], airport["ARP Longitude DD"]);
+
+        if (point.distanceTo(airportLatLng) <= radius) {
+            airport.distance = point.distanceTo(airportLatLng);
+            results.push(airport);
+        }
+    }
+
+    let airportContent = "";
+
+    results.forEach(airport => {
+
+        airportContent += `
+        <div class="alert">
+            <div class="bar" style="background-color: ${airport["Class"] === "B" ? "#09ff00" : airport["Class"] === "C" ? "#80ff00" : airport["Class"] === "D" ? "#daf702" : airport["Class"] === "E" ? "#f7ef02" : airport["Class"] === "G" ? "#f7b202" : "#f78102"};"></div>
+            <div class="header">
+                <h2>${airport["Name"]}</h2>
+                <span>${airport["Facility Type"]}${airport["ICAO Id"] !== "" ? " - " : ""}${airport["ICAO Id"]}</span>
+            </div>
+            <hr>
+            <span>Current Location is ${units.distance === "metric" ? (airport.distance / 1000).toFixed(2) + "km" : (airport.distance * 0.000621371).toFixed(2) + "mi"  } from this facility</span>
+            <br>
+            <span><a href="#${encodeURIComponent(airport["Site Id"])}" onclick="viewAirport('${airport["Site Id"]}')">View Airport Info</a></span>
+        </div>
+        `;
+    })
+    resolve(airportContent);
+    }));
+
     document.querySelector('#alerts').innerHTML = `<div class="status">Loading...</div>`;
 
     Promise.all(promises)
@@ -400,7 +525,6 @@ function updateInfo(lat, lng) {
                 content = `<div class="status">No alerts found for this Area.</div>`;
             }
             document.getElementById('alerts').innerHTML = content;
-            document.querySelector('.info-panel').classList.remove('collapsed');
         })
         .catch(error => {
             console.error(error);
@@ -418,7 +542,9 @@ function updateInfo(lat, lng) {
             let data = JSON.parse(Http.responseText);
             console.log(data);
             document.querySelector('#weather').innerHTML = `
+            <p>Last Updated ${new Date(data.current.time * 1000).toLocaleString()}</p>
             <h3>Current Weather</h3>
+            <hr>
             <div id="currentWeather">
                 <div class="card">
                     <span class="label">Cloud Cover</span>
@@ -460,40 +586,62 @@ function updateInfo(lat, lng) {
                     <span>MSL: ${units.pressure === "Hg" ? (data.current.surface_pressure * 0.029529983071445).toFixed(2) : data.current.surface_pressure}${units.pressure}</span>
                 </div>
             </div>
-            <hr>
             <h3>Hourly Forecast</h3>
+            <hr>
             <div id="hourlyForecast">
+                <input type="radio" name="hourlyForecast" id="temperature" checked>
+                <label for="temperature">Temperature</label>
+                <input type="radio" name="hourlyForecast" id="precipitation">
+                <label for="precipitation">Precipitation</label>
+                <input type="radio" name="hourlyForecast" id="wind">
+                <label for="wind">Wind</label>
+                <input type="radio" name="hourlyForecast" id="visibility">
+                <label for="visibility">Visibility</label>
                 <div id="hourlyForecastChart">
                 </div>
             <div>
             `;
 
             //Load Charts
-            let hourlyTemp = data.hourly.temperature_2m;
-            let hourlyTime = data.hourly.time;
-            var chartData = new google.visualization.DataTable(
-                {
-                    cols: [
-                        { id: 'time', label: 'Time', type: 'datetime' },
-                        { id: 'temp', label: 'Temperature', type: 'number' }
-                    ],
-                    rows: hourlyTemp.map((temp, index) => {
-                        return {
-                            c: [
-                                { v: new Date(hourlyTime[index] * 1000) },
-                                { v: temp }
-                            ]
-                        }
-                    })
+
+            //Use only first 24 hours
+            //Do not use times that are more than 1 hour in the past
+            let startPoint = 0;
+            for (let i = 0; i < data.hourly.time.length; i++) {
+                if (data.hourly.time[i] > Math.floor(Date.now() / 1000) - 3600) {
+                    startPoint = i;
+                    break;
                 }
-            );
+            }
+
+            let hourlyTemp = data.hourly.temperature_2m.slice(startPoint, startPoint + 24);
+            let hourlyTime = data.hourly.time.slice(startPoint, startPoint + 24);
+            var chartData = new google.visualization.DataTable({
+                cols: [
+                    { id: 'time', label: 'Time', type: 'datetime' },
+                    { id: 'temp', label: 'Temperature', type: 'number' },
+                    { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' } // Add this line
+                ],
+                rows: hourlyTemp.map((temp, index) => {
+                    return {
+                        c: [
+                            { v: new Date(hourlyTime[index] * 1000) },
+                            { v: temp },
+                            { v: index % 2 !== 0 ? Math.round(temp).toString() + "˚" : null } // Add this line
+                        ]
+                    }
+                })
+            });
 
             const options = {
-                legend: { position: 'none' },
+                legend: { position: 'top' },
                 chartArea: {
                     width: '94%'
                   },
-                width: '100%'
+                width: '100%',
+                annotations: {
+                    alwaysOutside: true
+                }
             };
 
             const chart = new google.visualization.LineChart(document.getElementById('hourlyForecastChart'));
@@ -502,6 +650,93 @@ function updateInfo(lat, lng) {
 
             window.addEventListener('resize', function() {
                 // Redraw the chart
+                chart.draw(chartData, options);
+            });
+
+            document.querySelector('#temperature').addEventListener('change', function() {
+                chartData = new google.visualization.DataTable({
+                    cols: [
+                        { id: 'time', label: 'Time', type: 'datetime' },
+                        { id: 'temp', label: 'Temperature', type: 'number' },
+                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' }
+                    ],
+                    rows: hourlyTemp.map((temp, index) => {
+                        return {
+                            c: [
+                                { v: new Date(hourlyTime[index] * 1000) },
+                                { v: temp },
+                                { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m: null }
+                            ]
+                        }
+                    })
+                });
+                chart.draw(chartData, options);
+            });
+
+            document.querySelector('#precipitation').addEventListener('change', function() {
+                chartData = new google.visualization.DataTable({
+                    cols: [
+                        { id: 'time', label: 'Time', type: 'datetime' },
+                        { id: 'precipitation', label: 'Precipitation', type: 'number' },
+                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' }
+                    ],
+                    rows: data.hourly.precipitation_probability.slice(startPoint, startPoint + 24).map((precipitation, index) => {
+                        return {
+                            c: [
+                                { v: new Date(hourlyTime[index] * 1000) },
+                                { v: precipitation },
+                                { v: index % 2 !== 0 ? precipitation.toString() + "%" : null }
+                            ]
+                        }
+                    })
+                });
+                chart.draw(chartData, options);
+            });
+
+            document.querySelector('#wind').addEventListener('change', function() {
+                chartData = new google.visualization.DataTable({
+                    cols: [
+                        { id: 'time', label: 'Time', type: 'datetime' },
+                        { id: 'wind', label: 'Wind', type: 'number' },
+                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' },
+                        { id: 'gusts', label: 'Gusts', type: 'number' }
+                    ],
+                    rows: data.hourly.wind_speed_10m.slice(startPoint, startPoint + 24).map((wind, index) => {
+                        return {
+                            c: [
+                                { v: new Date(hourlyTime[index] * 1000) },
+                                { v: wind },
+                                { v: index % 2 !== 0 ? wind.toString() + " mph" : null },
+                                { v: data.hourly.wind_gusts_10m[index + startPoint] }
+                            ]
+                        }
+                    })
+                });
+                chart.draw(chartData, options);
+            });
+
+            document.querySelector('#visibility').addEventListener('change', function() {
+                chartData = new google.visualization.DataTable({
+                    cols: [
+                        { id: 'time', label: 'Time', type: 'datetime' },
+                        { id: 'visibility', label: 'Visibility', type: 'number' },
+                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' }
+                    ],
+                    rows: data.hourly.visibility.slice(startPoint, startPoint + 24).map((visibility, index) => {
+                        visibility = data.hourly_units.visibility === "ft" ? visibility * 0.000189394 : visibility * 0.001;
+                        return {
+                            c: [
+                                { v: new Date(hourlyTime[index] * 1000) },
+                                { v: visibility },
+                                { v: index % 2 !== 0 ? visibility.toFixed(2).toString() + (data.hourly_units.visibility === "ft" ? "mi" : "km") : null }
+                            ]
+                        }
+                    })
+                });
+                chart.draw(chartData, options);
+            });
+
+            document.querySelector('#weatherBtn').addEventListener('click', function() {
                 chart.draw(chartData, options);
             });
         }
