@@ -78,12 +78,6 @@ Http.onreadystatechange = (e) => {
                 weight: 0
             });
 
-            marker.bindPopup(`
-            <div class="airport-marker">
-                <a href="#${encodeURIComponent(airport["Site Id"])}">${airport["Name"]}</a>
-            </div>
-            `);
-
             //Add to layer
             marker.addTo(airports);
         })
@@ -134,6 +128,16 @@ map.on('zoomend', function () {
         });
     }
 });
+
+const nationalParkService = L.esri.featureLayer({
+    url: 'https://services1.arcgis.com/fBc8EJBxQRMcHlei/ArcGIS/rest/services/NPS_Land_Resources_Division_Boundary_and_Tract_Data_Service/FeatureServer/2',
+    style: function (feature) {
+        return {
+            color: 'green',
+            weight: 1
+        };
+    }
+}).addTo(map);
 
 const facilityMap = L.esri.featureLayer({
     url: 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/FAA_UAS_FacilityMap_Data/FeatureServer/0',
@@ -202,6 +206,11 @@ let locationMarker = L.marker([0, 0], {
     draggable: true
 })
 
+//When marker is dragged update info
+locationMarker.on('dragend', function (e) {
+    updateInfo(e.target._latlng.lat, e.target._latlng.lng);
+});
+
 const geocoder = L.Control.Geocoder.nominatim();
 const control = L.Control.geocoder({
     geocoder: geocoder
@@ -232,7 +241,8 @@ const overlayMaps = {
     "Prohibited Areas": prohibitedAreas,
     "Recreational Fixed Flyer Sites": recreationalFixedFlyerSites,
     "Part Time Restrictions": partTimeRestrictions,
-    "Facility Map": facilityMap
+    "Facility Map": facilityMap,
+    "National Park Service": nationalParkService
 };
 
 L.control.layers(baseMaps, overlayMaps).addTo(map);
@@ -338,7 +348,8 @@ function updateInfo(lat, lng) {
         prohibitedAreas.query().intersects(L.latLng(lat, lng)),
         partTimeRestrictions.query().intersects(L.latLng(lat, lng)),
         recreationalFixedFlyerSites.query().intersects(L.latLng(lat, lng)),
-        facilityMap.query().intersects(L.latLng(lat, lng))
+        facilityMap.query().intersects(L.latLng(lat, lng)),
+        nationalParkService.query().intersects(L.latLng(lat, lng))
     ];
 
     let promises = queries.map((query, index) => new Promise((resolve, reject) => {
@@ -471,6 +482,16 @@ function updateInfo(lat, lng) {
                             }
 
                             break;
+                        case 5:
+                            content = `
+                            <div class="alert">
+                            <div class="bar" style="background-color: green"></div>
+                            <div class="header">
+                                <h2>${feature.properties.UNIT_NAME}</h2>
+                            </div>
+                                <span>This is a National Park Service Area. UAV operations are usually prohibited within National Park Service sites. Check with the National Park Service for more information on flying within the park.</span>
+                            </div>
+                            `
                     }
                 }
                 resolve(content);
@@ -481,7 +502,7 @@ function updateInfo(lat, lng) {
     //Search Airports
     promises.push(new Promise((resolve, reject) => {
     
-    let radius = 5 * 1609.34; // Convert miles to meters
+    let radius = 4 * 1609.34; // Convert miles to meters
     let results = [];
     let point = L.latLng(lat, lng);
 
