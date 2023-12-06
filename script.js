@@ -489,7 +489,7 @@ function updateInfo(lat, lng) {
                             <div class="header">
                                 <h2>${feature.properties.UNIT_NAME}</h2>
                             </div>
-                                <span>This is a National Park Service Area. UAV operations are usually prohibited within National Park Service sites. Check with the National Park Service for more information on flying within the park.</span>
+                                <span>This is a NPS (National Park Service) Area. UAV operations are usually prohibited within NPS sites without specific authorization. Check with the NPS for more information on flying within the park.</span>
                             </div>
                             `
                     }
