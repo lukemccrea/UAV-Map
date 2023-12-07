@@ -650,6 +650,7 @@ function updateInfo(lat, lng) {
             var chartData = new google.visualization.DataTable({
                 cols: [
                     { id: 'time', label: 'Time', type: 'datetime' },
+                    { id: "dewPoint", label: 'Dew Point', type: 'number' },
                     { id: 'temp', label: 'Temperature', type: 'number' },
                     { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' } // Add this line
                 ],
@@ -657,8 +658,9 @@ function updateInfo(lat, lng) {
                     return {
                         c: [
                             { v: new Date(hourlyTime[index] * 1000) },
+                            { v: data.hourly.dew_point_2m[index + startPoint]},
                             { v: temp },
-                            { v: index % 2 !== 0 ? Math.round(temp).toString() + "˚" : null } // Add this line
+                            { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m : null } // Add this line
                         ]
                     }
                 })
@@ -671,7 +673,10 @@ function updateInfo(lat, lng) {
                   },
                 width: '100%',
                 annotations: {
-                    alwaysOutside: true
+                    alwaysOutside: true,
+                    textStyle: {
+                        fontSize: 10,
+                    },
                 }
             };
 
@@ -688,15 +693,17 @@ function updateInfo(lat, lng) {
                 chartData = new google.visualization.DataTable({
                     cols: [
                         { id: 'time', label: 'Time', type: 'datetime' },
+                        { id: "dewPoint", label: 'Dew Point', type: 'number' },
                         { id: 'temp', label: 'Temperature', type: 'number' },
-                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' }
+                        { id: 'annotation', label: 'Annotation', type: 'string', role: 'annotation' } // Add this line
                     ],
                     rows: hourlyTemp.map((temp, index) => {
                         return {
                             c: [
                                 { v: new Date(hourlyTime[index] * 1000) },
+                                { v: data.hourly.dew_point_2m[index + startPoint]},
                                 { v: temp },
-                                { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m: null }
+                                { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m : null } // Add this line
                             ]
                         }
                     })
@@ -733,11 +740,12 @@ function updateInfo(lat, lng) {
                         { id: 'gusts', label: 'Gusts', type: 'number' }
                     ],
                     rows: data.hourly.wind_speed_10m.slice(startPoint, startPoint + 24).map((wind, index) => {
+                        let direction = data.hourly.wind_direction_10m[index + startPoint];
                         return {
                             c: [
                                 { v: new Date(hourlyTime[index] * 1000) },
                                 { v: wind },
-                                { v: index % 2 !== 0 ? wind.toString() + " mph" : null },
+                                { v: index % 2 !== 0 ? wind.toString() + " mph " + (direction <= 22.5 ? "N" : direction <= 67.5 ? "NE" : direction <= 112.5 ? "E" : direction <= 157.5 ? "SE" : direction <= 202.5 ? "S" : direction <= 247.5 ? "SW" : direction <= 292.5 ? "W" : direction <= 337.5 ? "NW" : "N"): null },
                                 { v: data.hourly.wind_gusts_10m[index + startPoint] }
                             ]
                         }
