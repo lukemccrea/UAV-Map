@@ -1,4 +1,4 @@
-if(localStorage.getItem("agreed") === "true") {
+if (localStorage.getItem("agreed") === "true") {
     document.querySelector("#agreement").style.display = "none";
     document.querySelector("#overlay").style.display = "none";
 }
@@ -55,6 +55,13 @@ let map = L.map('map', {
     ]
 }).setView([37.8, -96], 5);
 
+let activeMarker = null;
+
+//Make location marker
+let locationMarker = L.marker([0, 0], {
+    draggable: true
+})
+
 const googleMaps = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
     maxZoom: 20,
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
@@ -74,9 +81,9 @@ Http.open("GET", url);
 Http.send();
 
 Http.onreadystatechange = (e) => {
-    if(Http.readyState === 4 && Http.status === 200) {
+    if (Http.readyState === 4 && Http.status === 200) {
         airportData = JSON.parse(Http.responseText);
-        
+
         airportData.forEach(airport => {
             //add Marker
             let marker = L.circleMarker([airport["ARP Latitude DD"], airport["ARP Longitude DD"]], {
@@ -89,8 +96,43 @@ Http.onreadystatechange = (e) => {
             });
 
             //Add to layer
-            marker.addTo(airports);
+            marker.addTo(airports).on('click', function (e) {
+                L.DomEvent.stopPropagation(e);
+                if (map.getZoom() >= 7) {
+                    if (activeMarker) {
+                        activeMarker.setStyle({
+                            color: 'white',
+                            fillColor: '#00259e'
+                        });
+                        activeMarker = null;
+                    }
+
+                    this.setStyle({
+                        color: 'white',
+                        fillColor: '#0062ff'
+                    });
+
+                    activeMarker = this;
+
+                    viewAirport(airport["Site Id"]);
+                } else {
+                    //remove default marker
+                    if (locationMarker) {
+                        map.removeLayer(locationMarker);
+                    }
+
+                    locationMarker.setLatLng(e.latlng).addTo(map);
+
+                    updateInfo(e.latlng.lat, e.latlng.lng);
+                }
+            });
         })
+
+        //If ICAO or Site is in URL, show airport info
+        if (window.location.hash) {
+            let hash = window.location.hash.substring(1);
+            viewAirport(hash);
+        }
     }
 }
 
@@ -106,7 +148,7 @@ map.on('zoomend', function () {
                 weight: 0
             });
         });
-    } else if (map.getZoom() >= 7 && map.getZoom() <= 9){
+    } else if (map.getZoom() >= 7 && map.getZoom() <= 9) {
         //Make airports visible
         airports.eachLayer(function (layer) {
             layer.setStyle({
@@ -116,7 +158,7 @@ map.on('zoomend', function () {
                 weight: 1
             });
         });
-    } else if (map.getZoom() > 9 && map.getZoom() <= 12){
+    } else if (map.getZoom() > 9 && map.getZoom() <= 12) {
         //Make airports visible
         airports.eachLayer(function (layer) {
             layer.setStyle({
@@ -192,8 +234,6 @@ const recreationalFixedFlyerSites = L.esri.featureLayer({
     }
 }).addTo(map);
 
-
-
 //Add Part Time Restrictions
 const partTimeRestrictions = L.esri.featureLayer({
     url: 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/Part_Time_National_Security_UAS_Flight_Restrictions/FeatureServer/0',
@@ -210,11 +250,6 @@ const partTimeRestrictions = L.esri.featureLayer({
         };
     }
 }).addTo(map);
-
-//Make location marker
-let locationMarker = L.marker([0, 0], {
-    draggable: true
-})
 
 //When marker is dragged update info
 locationMarker.on('dragend', function (e) {
@@ -280,6 +315,8 @@ infoPanel.onAdd = function (map) {
             <div class="status">Click anywhere on the map to see weather info.</div>
         </div>
     </div>
+    <div class="content hidden" id="airportInfo">
+    </div>
     `;
     return this._div;
 }
@@ -332,12 +369,20 @@ map.on('locationfound', function (e) {
 
     locationMarker.setLatLng(e.latlng).addTo(map);
     updateInfo(e.latlng.lat, e.latlng.lng);
-    
+
     document.querySelector('.locate-button button').innerHTML = "<i class='fa-solid fa-location-crosshairs'></i>"
 });
 
 //move marker on click or drag
 function onMapClick(e) {
+    if (activeMarker) {
+        activeMarker.setStyle({
+            color: 'white',
+            fillColor: '#00259e'
+        });
+        activeMarker = null;
+    }
+
     locationMarker.setLatLng(e.latlng).addTo(map);
     updateInfo(e.latlng.lat, e.latlng.lng);
 }
@@ -415,7 +460,6 @@ function updateInfo(lat, lng) {
                             `;
                             break;
                         case 3:
-                            console.log(feature.properties);
                             content = `
                             <div class="alert">
                                 <div class="bar" style="background-color: blue;"></div>
@@ -431,7 +475,6 @@ function updateInfo(lat, lng) {
                             `;
                             break;
                         case 4:
-                            console.log(feature.properties);
                             content = `
                             <div class="alert">
                                 <div class="bar" style="background-color: ${feature.properties.CEILING > 400 ? "#09ff00" : feature.properties.CEILING > 300 ? "#80ff00" : feature.properties.CEILING > 250 ? "#daf702" : feature.properties.CEILING > 200 ? "#f7ef02" : feature.properties.CEILING > 150 ? "#f7b202" : feature.properties.CEILING > 100 ? "#f78102" : feature.properties.CEILING > 50 ? "#f76c02" : "#f70202"};"></div>
@@ -511,26 +554,26 @@ function updateInfo(lat, lng) {
 
     //Search Airports
     promises.push(new Promise((resolve, reject) => {
-    
-    let radius = 4 * 1609.34; // Convert miles to meters
-    let results = [];
-    let point = L.latLng(lat, lng);
 
-    for (let i = 0; i < airportData.length; i++) {
-        let airport = airportData[i];
-        let airportLatLng = L.latLng(airport["ARP Latitude DD"], airport["ARP Longitude DD"]);
+        let radius = 4 * 1609.34; // Convert miles to meters
+        let results = [];
+        let point = L.latLng(lat, lng);
 
-        if (point.distanceTo(airportLatLng) <= radius) {
-            airport.distance = point.distanceTo(airportLatLng);
-            results.push(airport);
+        for (let i = 0; i < airportData.length; i++) {
+            let airport = airportData[i];
+            let airportLatLng = L.latLng(airport["ARP Latitude DD"], airport["ARP Longitude DD"]);
+
+            if (point.distanceTo(airportLatLng) <= radius) {
+                airport.distance = point.distanceTo(airportLatLng);
+                results.push(airport);
+            }
         }
-    }
 
-    let airportContent = "";
+        let airportContent = "";
 
-    results.forEach(airport => {
+        results.forEach(airport => {
 
-        airportContent += `
+            airportContent += `
         <div class="alert">
             <div class="bar" style="background-color: ${airport["Class"] === "B" ? "#09ff00" : airport["Class"] === "C" ? "#80ff00" : airport["Class"] === "D" ? "#daf702" : airport["Class"] === "E" ? "#f7ef02" : airport["Class"] === "G" ? "#f7b202" : "#f78102"};"></div>
             <div class="header">
@@ -538,13 +581,13 @@ function updateInfo(lat, lng) {
                 <span>${airport["Facility Type"]}${airport["ICAO Id"] !== "" ? " - " : ""}${airport["ICAO Id"]}</span>
             </div>
             <hr>
-            <span>Current Location is ${units.distance === "metric" ? (airport.distance / 1000).toFixed(2) + "km" : (airport.distance * 0.000621371).toFixed(2) + "mi"  } from this facility.</span>
+            <span>Current Location is ${units.distance === "metric" ? (airport.distance / 1000).toFixed(2) + "km" : (airport.distance * 0.000621371).toFixed(2) + "mi"} from this facility.</span>
             <br>
             <span><a href="#${encodeURIComponent(airport["Site Id"])}" onclick="viewAirport('${airport["Site Id"]}')">View Airport Info</a></span>
         </div>
         `;
-    })
-    resolve(airportContent);
+        })
+        resolve(airportContent);
     }));
 
     document.querySelector('#alerts').innerHTML = `<div class="status">Loading...</div>`;
@@ -601,7 +644,7 @@ function updateInfo(lat, lng) {
                 <div class="card">
                     <span class="label">Wind</span>
                     <br>
-                    <i class="fa-solid fa-arrow-up" style="transform: rotate(${data.current.wind_direction_10m}deg)"></i>
+                    <i class="fa-solid fa-arrow-up" style="transform: rotate(${data.current.wind_direction_10m + 180}deg)"></i>
                     <br>
                     <span>Speed: ${data.current.wind_speed_10m}${data.current_units.wind_speed_10m}</span>
                     <br>
@@ -658,7 +701,7 @@ function updateInfo(lat, lng) {
                     return {
                         c: [
                             { v: new Date(hourlyTime[index] * 1000) },
-                            { v: data.hourly.dew_point_2m[index + startPoint]},
+                            { v: data.hourly.dew_point_2m[index + startPoint] },
                             { v: temp },
                             { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m : null } // Add this line
                         ]
@@ -670,7 +713,7 @@ function updateInfo(lat, lng) {
                 legend: { position: 'top' },
                 chartArea: {
                     width: '94%'
-                  },
+                },
                 width: '100%',
                 annotations: {
                     alwaysOutside: true,
@@ -684,12 +727,12 @@ function updateInfo(lat, lng) {
 
             chart.draw(chartData, options);
 
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 // Redraw the chart
                 chart.draw(chartData, options);
             });
 
-            document.querySelector('#temperature').addEventListener('change', function() {
+            document.querySelector('#temperature').addEventListener('change', function () {
                 chartData = new google.visualization.DataTable({
                     cols: [
                         { id: 'time', label: 'Time', type: 'datetime' },
@@ -701,7 +744,7 @@ function updateInfo(lat, lng) {
                         return {
                             c: [
                                 { v: new Date(hourlyTime[index] * 1000) },
-                                { v: data.hourly.dew_point_2m[index + startPoint]},
+                                { v: data.hourly.dew_point_2m[index + startPoint] },
                                 { v: temp },
                                 { v: index % 2 !== 0 ? Math.round(temp).toString() + data.hourly_units.temperature_2m : null } // Add this line
                             ]
@@ -711,7 +754,7 @@ function updateInfo(lat, lng) {
                 chart.draw(chartData, options);
             });
 
-            document.querySelector('#precipitation').addEventListener('change', function() {
+            document.querySelector('#precipitation').addEventListener('change', function () {
                 chartData = new google.visualization.DataTable({
                     cols: [
                         { id: 'time', label: 'Time', type: 'datetime' },
@@ -731,7 +774,7 @@ function updateInfo(lat, lng) {
                 chart.draw(chartData, options);
             });
 
-            document.querySelector('#wind').addEventListener('change', function() {
+            document.querySelector('#wind').addEventListener('change', function () {
                 chartData = new google.visualization.DataTable({
                     cols: [
                         { id: 'time', label: 'Time', type: 'datetime' },
@@ -745,7 +788,7 @@ function updateInfo(lat, lng) {
                             c: [
                                 { v: new Date(hourlyTime[index] * 1000) },
                                 { v: wind },
-                                { v: index % 2 !== 0 ? wind.toString() + " mph " + (direction <= 22.5 ? "N" : direction <= 67.5 ? "NE" : direction <= 112.5 ? "E" : direction <= 157.5 ? "SE" : direction <= 202.5 ? "S" : direction <= 247.5 ? "SW" : direction <= 292.5 ? "W" : direction <= 337.5 ? "NW" : "N"): null },
+                                { v: index % 2 !== 0 ? wind.toString() + " mph " + (direction <= 22.5 ? "N" : direction <= 67.5 ? "NE" : direction <= 112.5 ? "E" : direction <= 157.5 ? "SE" : direction <= 202.5 ? "S" : direction <= 247.5 ? "SW" : direction <= 292.5 ? "W" : direction <= 337.5 ? "NW" : "N") : null },
                                 { v: data.hourly.wind_gusts_10m[index + startPoint] }
                             ]
                         }
@@ -754,7 +797,7 @@ function updateInfo(lat, lng) {
                 chart.draw(chartData, options);
             });
 
-            document.querySelector('#visibility').addEventListener('change', function() {
+            document.querySelector('#visibility').addEventListener('change', function () {
                 chartData = new google.visualization.DataTable({
                     cols: [
                         { id: 'time', label: 'Time', type: 'datetime' },
@@ -775,7 +818,7 @@ function updateInfo(lat, lng) {
                 chart.draw(chartData, options);
             });
 
-            document.querySelector('#weatherBtn').addEventListener('click', function() {
+            document.querySelector('#weatherBtn').addEventListener('click', function () {
                 chart.draw(chartData, options);
             });
         }
@@ -794,6 +837,26 @@ function agree() {
     document.querySelector('#overlay').style.display = "none";
 
     localStorage.setItem('agreed', "true");
+}
+
+function viewAirport(id) {
+    window.location.hash = id;
+    document.querySelector(".info-panel").classList.remove("collapsed");
+    document.querySelector("#airportInfo").innerHTML = `<div class="status">Loading...</div>`;
+    document.querySelector("#airportInfo").classList.remove("hidden");
+    document.querySelector("#infoContent").classList.add("hidden");
+
+    let airport = (id.length == 4) ? airportData.find(airport => airport["ICAO Id"] === id) : airportData.find(airport => airport["Site Id"] === id);
+    console.log(airport);
+
+    if (airport) {
+        document.querySelector('.info-panel .topbar .title').innerText = `${airport["Name"]}`;
+
+        //Set view to airport
+        map.setView([airport["ARP Latitude DD"], airport["ARP Longitude DD"]], 16);
+
+        document.querySelector("#airportInfo").innerHTML = ``;
+    }
 }
 
 /*
