@@ -107,14 +107,9 @@ Http.onreadystatechange = (e) => {
                         activeMarker = null;
                     }
 
-                    this.setStyle({
-                        color: 'white',
-                        fillColor: '#0062ff'
-                    });
-
                     activeMarker = this;
 
-                    viewAirport(airport["Site Id"]);
+                    viewAirport(airport["Site Id"], this);
                 } else {
                     //remove default marker
                     if (locationMarker) {
@@ -383,6 +378,8 @@ function onMapClick(e) {
         activeMarker = null;
     }
 
+    window.location.hash = "";
+
     locationMarker.setLatLng(e.latlng).addTo(map);
     updateInfo(e.latlng.lat, e.latlng.lng);
 }
@@ -391,6 +388,9 @@ map.on('click', onMapClick);
 
 function updateInfo(lat, lng) {
     document.querySelector('.info-panel').classList.remove('collapsed');
+
+    document.querySelector("#infoContent").classList.remove("hidden");
+    document.querySelector("#airportInfo").classList.add("hidden");
 
     document.querySelector('.info-panel .topbar .title').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     //get address from lat and lng
@@ -839,23 +839,53 @@ function agree() {
     localStorage.setItem('agreed', "true");
 }
 
-function viewAirport(id) {
-    window.location.hash = id;
-    document.querySelector(".info-panel").classList.remove("collapsed");
-    document.querySelector("#airportInfo").innerHTML = `<div class="status">Loading...</div>`;
-    document.querySelector("#airportInfo").classList.remove("hidden");
-    document.querySelector("#infoContent").classList.add("hidden");
-
+function viewAirport(id, marker) {
     let airport = (id.length == 4) ? airportData.find(airport => airport["ICAO Id"] === id) : airportData.find(airport => airport["Site Id"] === id);
     console.log(airport);
-
     if (airport) {
+        if (!marker) {
+            marker = airports.getLayers().find(marker => marker.getLatLng().lat === airport["ARP Latitude DD"] && marker.getLatLng().lng === airport["ARP Longitude DD"]);
+        }
+        marker.setStyle({
+            color: 'white',
+            fillColor: '#0062ff'
+        });
+
+        activeMarker = marker;
+
+        window.location.hash = id;
+        document.querySelector(".info-panel").classList.remove("collapsed");
+        document.querySelector("#airportInfo").innerHTML = `<div class="status">Loading...</div>`;
+        document.querySelector("#airportInfo").classList.remove("hidden");
+        document.querySelector("#infoContent").classList.add("hidden");
+
+
         document.querySelector('.info-panel .topbar .title').innerText = `${airport["Name"]}`;
 
         //Set view to airport
         map.setView([airport["ARP Latitude DD"], airport["ARP Longitude DD"]], 16);
 
-        document.querySelector("#airportInfo").innerHTML = ``;
+        document.querySelector("#airportInfo").innerHTML = `
+        <div id="nav">
+            <button onclick="setPage('info')" id="infoBtn" class="active">Info</button>
+            <button onclick="setPage('airportWeather')" id="airportWeatherBtn">Weather</button>
+        </div>
+        <div id="airportWeather" class="page">
+        </div>
+        <div id="info" class="page active">
+            <h1>${airport["Name"]}</h1>
+            <span>${airport["Facility Type"]}${airport["ICAO Id"] !== "" ? " - " : ""}${airport["ICAO Id"]}</span>
+            <table>
+            <tr>
+                <th>Elevation:</th>
+                <td>${units.distance === "imperial" ? airport["Elevation"] : (airport["Elevation"] * 0.3048).toFixed(1)}${units.distance === "imperial" ? "ft" : "m"}</td>
+            </tr>
+            <tr>
+                <th>Use:</th>
+                <td>${airport["Use"]}</td>
+            </tr>
+        </div>
+        `;
     }
 }
 

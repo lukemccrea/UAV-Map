@@ -267,6 +267,15 @@ body {
     font-size: 1rem;
 }
 
+#info h1 {
+    margin: 0px;
+}
+
+#info table {
+    text-align: left;
+    
+}
+
 .info-panel.collapsed {
     height: 31px;
 }
