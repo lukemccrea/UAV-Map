@@ -389,6 +389,9 @@ map.on('click', onMapClick);
 function updateInfo(lat, lng) {
     document.querySelector('.info-panel').classList.remove('collapsed');
 
+    document.querySelector(".active").classList.remove("active");
+    document.querySelector("#alertsBtn").classList.add("active");
+    document.querySelector("#alerts").classList.add("active");
     document.querySelector("#infoContent").classList.remove("hidden");
     document.querySelector("#airportInfo").classList.add("hidden");
 
@@ -856,6 +859,7 @@ function viewAirport(id, marker) {
         window.location.hash = id;
         document.querySelector(".info-panel").classList.remove("collapsed");
         document.querySelector("#airportInfo").innerHTML = `<div class="status">Loading...</div>`;
+        document.querySelector(`#nav button.active`).classList.remove('active');
         document.querySelector("#airportInfo").classList.remove("hidden");
         document.querySelector("#infoContent").classList.add("hidden");
 
