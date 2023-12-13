@@ -133,7 +133,7 @@ Http.onreadystatechange = (e) => {
 
 //Control layer display based on zoom level
 map.on('zoomend', function () {
-    if (map.getZoom() < 7) {
+    if (map.getZoom() < 9) {
         //Update styles to be transparent
         airports.eachLayer(function (layer) {
             layer.setStyle({
@@ -143,7 +143,7 @@ map.on('zoomend', function () {
                 weight: 0
             });
         });
-    } else if (map.getZoom() >= 7 && map.getZoom() <= 9) {
+    } else if (map.getZoom() >= 9 && map.getZoom() <= 10) {
         //Make airports visible
         airports.eachLayer(function (layer) {
             layer.setStyle({
@@ -153,7 +153,7 @@ map.on('zoomend', function () {
                 weight: 1
             });
         });
-    } else if (map.getZoom() > 9 && map.getZoom() <= 12) {
+    } else if (map.getZoom() > 10 && map.getZoom() <= 12) {
         //Make airports visible
         airports.eachLayer(function (layer) {
             layer.setStyle({
@@ -183,7 +183,9 @@ const nationalParkService = L.esri.featureLayer({
             color: 'green',
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true 
 }).addTo(map);
 
 const facilityMap = L.esri.featureLayer({
@@ -193,7 +195,9 @@ const facilityMap = L.esri.featureLayer({
             color: getColor(feature.properties.CEILING),
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true 
 }).addTo(map);
 
 // Add a layer for restricted UAV areas
@@ -204,7 +208,9 @@ const prohibitedAreas = L.esri.featureLayer({
             color: 'red',
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true 
 }).addTo(map);
 
 // Add a layer for restricted UAV areas
@@ -215,7 +221,9 @@ const restrictedUAVAreas = L.esri.featureLayer({
             color: 'red',
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true 
 }).addTo(map);
 
 // Recreational Fixed Flyer Sites
@@ -226,7 +234,9 @@ const recreationalFixedFlyerSites = L.esri.featureLayer({
             color: 'blue',
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true 
 }).addTo(map);
 
 //Add Part Time Restrictions
@@ -243,7 +253,9 @@ const partTimeRestrictions = L.esri.featureLayer({
             color: active ? 'red' : 'green',
             weight: 1
         };
-    }
+    },
+    updateWhenZooming: false,
+    updateWhenIdle: true
 }).addTo(map);
 
 //When marker is dragged update info
@@ -488,7 +500,7 @@ function updateInfo(lat, lng) {
                                 <br>
                                 <span>Ceiling: ${feature.properties.CEILING} ${feature.properties.UNIT}</span>
                                 <br>
-                                <span><a href="#${feature.properties.APT1_ICAO}" onclick="viewAirport(${feature.properties.APT1_ICAO})">View Airport Info</button></a>
+                                <span><a href="#${feature.properties.APT1_ICAO}" onclick="viewAirport('${feature.properties.APT1_ICAO}')">View Airport Info</button></a>
                             </div>
                             `;
 
@@ -503,7 +515,7 @@ function updateInfo(lat, lng) {
                                     <br>
                                     <span>Ceiling: ${feature.properties.CEILING} ${feature.properties.UNIT}</span>
                                     <br>
-                                    <span><a href="#${feature.properties.APT2_ICAO}" onclick="viewAirport(${feature.properties.APT2_ICAO})">View Airport Info</button></a>
+                                    <span><a href="#${feature.properties.APT2_ICAO}" onclick="viewAirport('${feature.properties.APT2_ICAO}')">View Airport Info</button></a>
                                     </div>`;
                             }
 
@@ -518,7 +530,7 @@ function updateInfo(lat, lng) {
                                     <br>
                                     <span>Ceiling: ${feature.properties.CEILING} ${feature.properties.UNIT}</span>
                                     <br>
-                                    <span><a href="#${feature.properties.APT3_ICAO}" onclick="viewAirport(${feature.properties.APT3_ICAO})">View Airport Info</a></span>
+                                    <span><a href="#${feature.properties.APT3_ICAO}" onclick="viewAirport('${feature.properties.APT3_ICAO}')">View Airport Info</a></span>
                                     </div>`;
                             }
 
@@ -533,7 +545,7 @@ function updateInfo(lat, lng) {
                                     <br>
                                     <span>Ceiling: ${feature.properties.CEILING} ${feature.properties.UNIT}</span>
                                     <br>
-                                    <span><a href="#${feature.properties.APT4_ICAO}" onclick="viewAirport(${feature.properties.APT4_ICAO})">View Airport Info</a></span>
+                                    <span><a href="#${feature.properties.APT4_ICAO}" onclick="viewAirport('${feature.properties.APT4_ICAO}')">View Airport Info</a></span>
                                     </div>`;
                             }
 
@@ -558,7 +570,7 @@ function updateInfo(lat, lng) {
     //Search Airports
     promises.push(new Promise((resolve, reject) => {
 
-        let radius = 4 * 1609.34; // Convert miles to meters
+        let radius = 3 * 1609.34; // Convert miles to meters
         let results = [];
         let point = L.latLng(lat, lng);
 
@@ -879,6 +891,9 @@ function viewAirport(id, marker) {
         <div id="info" class="page active">
             <h1>${airport["Name"]}</h1>
             <span>${airport["Facility Type"]}${airport["ICAO Id"] !== "" ? " - " : ""}${airport["ICAO Id"]}</span>
+            
+            <span style="float: right;">${airport["City"]}, ${airport["County State"]}</span>
+            <hr>
             <table>
             <tr>
                 <th>Elevation:</th>
@@ -887,6 +902,14 @@ function viewAirport(id, marker) {
             <tr>
                 <th>Use:</th>
                 <td>${airport["Use"]}</td>
+            </tr>
+            <tr>
+                <th>Owner:</th>
+                <td>${airport["Owner"]}</td>
+            </tr>
+            <tr>
+                <th>UNICOM:</th>
+                <td>${airport["UNICOM"]}</td>
             </tr>
         </div>
         `;
